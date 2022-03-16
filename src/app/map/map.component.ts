@@ -5,6 +5,7 @@ import { environment } from 'src/environments/environment';
 import { HttpClient } from '@angular/common/http';
 import { combineLatest, Observable } from 'rxjs';
 import { Feature, MultiPolygon } from 'geojson';
+import { FnParam } from '@angular/compiler/src/output/output_ast';
 
 export interface Locality {
     Name: string;
@@ -104,6 +105,8 @@ export class MapComponent implements OnInit {
     highestCrimeRateLocalities: any[];
     lowestCrimeRateLocalities: any[];
 
+    filteredGeoJsonData: GeoJSON.FeatureCollection<GeoJSON.MultiPolygon>;
+
     constructor(private http: HttpClient) {
         this.offenceList = Object.values(Offences);
         this.selectedOffenceFilters = [...this.offenceList];
@@ -166,6 +169,8 @@ export class MapComponent implements OnInit {
 
                 this.geoJsonData.features = suburbsInBounds;
 
+                this.filteredGeoJsonData = this.geoJsonData;
+
                 this.recalculateCrimeRates();
 
                 this.map = new mapboxgl.Map({
@@ -192,7 +197,7 @@ export class MapComponent implements OnInit {
                     // Add a data source containing GeoJSON data.
                     this.map.addSource('westernAustralia', {
                         type: 'geojson',
-                        data: this.geoJsonData,
+                        data: this.filteredGeoJsonData,
                         generateId: true,
                     });
 
@@ -352,17 +357,17 @@ export class MapComponent implements OnInit {
                                 };
                                 const popup = new mapboxgl.Popup({
                                     offset: popupOffsets,
-                                    className: 'my-class',
+                                    className: 'map-popup',
                                 })
                                     .setLngLat(e.lngLat)
                                     .setHTML(
-                                        `<h2>${locality.Name}</h2><label>${
-                                            population > 0
+                                        `<div style="padding:0.5rem"><h2 style="padding-left: 3px">${locality.Name}</h2><table><tr><td style="font-weight: bold">Rank</td><td>${this.geoJsonData.features.findIndex(f => f.properties['wa_local_2'] === locality.Name.toUpperCase())}/${this.geoJsonData.features.length}</td></tr><tr><td style="font-weight: bold">Crime Rate</td><td>${
+                                            population > 100
                                                 ? (
                                                       offenceCount / population
                                                   ).toFixed(2)
-                                                : 'No data'
-                                        }</label>`
+                                                : 'Insufficient data'
+                                        }</td></tr></table></div>`
                                     )
                                     .setMaxWidth('300px')
                                     .addTo(this.map);
@@ -399,20 +404,26 @@ export class MapComponent implements OnInit {
             }
 
             f.properties['crime-rate'] =
-                offenceCount > 0 && population > 0
+                (population >= 100)
                     ? +((offenceCount * 100) / population).toFixed(2)
                     : NaN;
         });
 
-        this.geoJsonData.features.sort((a, b) => {
-            if (a.properties['crime-rate'] > b.properties['crime-rate']) {
+        const filtered = this.geoJsonData.features.filter(f => f.properties['crime-rate'] >= 0);
+
+        filtered.sort((a, b) => {
+            if (+a.properties['crime-rate'] > +b.properties['crime-rate']) {
                 return 1;
             }
-            if (a.properties['crime-rate'] < b.properties['crime-rate']) {
+            if (+a.properties['crime-rate'] < +b.properties['crime-rate']) {
                 return -1;
             }
             return 0;
         });
+
+        this.filteredGeoJsonData.features = filtered;
+
+        const rates = filtered.map(f => f.properties['crime-rate']);
 
         const suburbs = this.geoJsonData.features.filter(
             (f) => f.properties['crime-rate'] >= 0
@@ -420,9 +431,6 @@ export class MapComponent implements OnInit {
 
         this.highestCrimeRateLocalities = suburbs.slice(-10).reverse();
         this.lowestCrimeRateLocalities = suburbs.slice(0, 10);
-
-        console.log(this.highestCrimeRateLocalities);
-        console.log(this.lowestCrimeRateLocalities);
 
         if (this.map) {
             (
@@ -441,10 +449,17 @@ export class MapComponent implements OnInit {
             this.selectedOffenceFilters.push(offence);
         }
 
+        const checkbox: HTMLInputElement = (document.getElementById('selectAll') as HTMLInputElement);
+        
+        checkbox.indeterminate = this.selectedOffenceFilters.length > 0 && this.selectedOffenceFilters.length < this.offenceList.length;
+
         this.recalculateCrimeRates();
     }
 
     toggleAllFilters() {
+        const checkbox: HTMLInputElement = (document.getElementById('selectAll') as HTMLInputElement);
+        checkbox.indeterminate = false
+
         if (this.selectedOffenceFilters.length > 0) {
             this.selectedOffenceFilters = [];
         } else {

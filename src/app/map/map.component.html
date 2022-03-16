@@ -4,9 +4,8 @@
         <div class="filters">
             <span>
                 <label>
-                    <input type="checkbox" (click)="toggleAllFilters()"
-                        [checked]="selectedOffenceFilters.length === offenceList.length"
-                        [attr.indeterminate]="selectedOffenceFilters.length > 0 && selectedOffenceFilters.length < offenceList.length ? true : false" />
+                    <input type="checkbox" id="selectAll" (click)="toggleAllFilters()"
+                        [checked]="selectedOffenceFilters.length === offenceList.length" />
                     Select All
                 </label>
             </span>
@@ -20,19 +19,21 @@
         </div>
     </div>
     <div class="panel-container">
-        <h3>Highest crime rate suburbs per capita</h3>
-        <div class="panel-column">
-            <div class="panel-row" *ngFor="let locality of highestCrimeRateLocalities">
-                <div>{{toTitleCase(locality.properties['wa_local_2'])}}</div>
-                <div>{{locality.properties['crime-rate']}}</div>
+        <ng-container *ngIf="selectedOffenceFilters.length > 0">
+            <h3>Highest crime rate suburbs per capita</h3>
+            <div class="panel-column">
+                <div class="panel-row" *ngFor="let locality of highestCrimeRateLocalities">
+                    <div>{{toTitleCase(locality.properties['wa_local_2'])}}</div>
+                    <div>{{locality.properties['crime-rate']}}</div>
+                </div>
             </div>
-        </div>
-        <h3>Lowest crime rate suburbs per capita</h3>
-        <div class="panel-column">
-            <div class="panel-row" *ngFor="let locality of lowestCrimeRateLocalities">
-                <div>{{toTitleCase(locality.properties['wa_local_2'])}}</div>
-                <div>{{locality.properties['crime-rate']}}</div>
+            <h3>Lowest crime rate suburbs per capita</h3>
+            <div class="panel-column">
+                <div class="panel-row" *ngFor="let locality of lowestCrimeRateLocalities">
+                    <div>{{toTitleCase(locality.properties['wa_local_2'])}}</div>
+                    <div>{{locality.properties['crime-rate']}}</div>
+                </div>
             </div>
-        </div>
+        </ng-container>
     </div>
 </div>
