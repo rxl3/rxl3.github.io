@@ -1,0 +1,59 @@
+:host {
+}
+
+.flex-container {
+    display: flex;
+    height: 100%;
+}
+
+.map-container {
+    flex: 2;
+    height: 100%;
+}
+
+.panel-container {
+    flex: 1;
+    padding: 1rem;
+
+    .panel-column {
+        display: flex;
+        flex-direction: column;
+        flex-wrap: wrap;
+        max-height: 14rem;
+
+        .panel-row {
+            width: 50%;
+
+            div:nth-child(2) {
+                font-weight: 300;
+            }
+        }
+    }
+}
+
+.match-parent {
+    width: 100%;
+    height: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.filters {
+    max-width: 1000px;
+    margin: 1rem auto 0;
+    display: flex;
+    flex-wrap: wrap;
+
+    span {
+        display: inline-block;
+        margin-top: 0.5rem;
+        flex: 1;
+        min-width: 15rem;
+        &:not(:last-child) {
+            margin-right: 0.5rem;
+        }
+        label {
+            display: inline-block;
+        }
+    }
+}
