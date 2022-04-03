@@ -1,6 +1,14 @@
 <div class="flex-container">
     <div class="map-container">
         <div class="map" id="map" class="match-parent"></div>
+        <div class="searchbox" (blur)="dismissSuburbs($event)" tabindex="0">
+            <input class="input" type="text" placeholder="Search for a suburb" [ngModel]="searchText"
+                (ngModelChange)="onSearchTextChange($event)" />
+            <div *ngIf="filteredSuburbs.length > 0" class="suburbs-list">
+                <div class="suburb-row" *ngFor="let suburb of filteredSuburbs" (click)="doSuburbFilter(suburb.Name)">
+                    {{suburb.Name}}</div>
+            </div>
+        </div>
         <div class="filters">
             <span>
                 <label>
@@ -19,17 +27,21 @@
         </div>
     </div>
     <div class="panel-container">
-        <ng-container *ngIf="selectedOffenceFilters.length > 0">
-            <h3>Highest crime rate suburbs per capita</h3>
+        <ng-container *ngIf="highestCrimeRateLocalities.length > 0">
+            <h3>Highest 10</h3>
             <div class="panel-column">
-                <div class="panel-row" *ngFor="let locality of highestCrimeRateLocalities">
+                <div class="panel-row" *ngFor="let locality of highestCrimeRateLocalities"
+                    (click)="doSuburbFilter(locality.properties['wa_local_2'])">
                     <div>{{toTitleCase(locality.properties['wa_local_2'])}}</div>
                     <div>{{locality.properties['crime-rate']}}</div>
                 </div>
             </div>
-            <h3>Lowest crime rate suburbs per capita</h3>
+        </ng-container>
+        <ng-container *ngIf="lowestCrimeRateLocalities.length > 0">
+            <h3>Lowest 10</h3>
             <div class="panel-column">
-                <div class="panel-row" *ngFor="let locality of lowestCrimeRateLocalities">
+                <div class="panel-row" *ngFor="let locality of lowestCrimeRateLocalities"
+                    (click)="doSuburbFilter(locality.properties['wa_local_2'])">
                     <div>{{toTitleCase(locality.properties['wa_local_2'])}}</div>
                     <div>{{locality.properties['crime-rate']}}</div>
                 </div>

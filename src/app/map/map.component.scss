@@ -1,28 +1,103 @@
 :host {
+    @media only screen and (max-width: 767px) {
+        font-size: 12px;
+    }
 }
 
 .flex-container {
     display: flex;
-    height: 100%;
+    height: max-content;
 }
 
 .map-container {
     flex: 2;
     height: 100%;
+
+    position: relative;
+
+    .searchbox {
+        padding: 0.5rem;
+        border-radius: 8px;
+        background: white;
+        box-shadow: 0 0 3px 0 grey;
+        width: 10rem;
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+
+        input {
+            font-size: 0.8rem;
+            padding: 0.25rem 0.75rem 0.25rem 0.5rem;
+        }
+    }
+
+    .suburbs-list {
+        position: absolute;
+        top: 2.75rem;
+        left: 0rem;
+        background: white;
+        border-radius: 4px;
+        box-shadow: 0 0 10px 0 grey;
+        padding: 0.2rem 0.5rem;
+        width: 10rem;
+        max-height: 15rem;
+        overflow: auto;
+
+        .suburb-row {
+            padding: 0.5rem 1rem;
+            background: white;
+            cursor: pointer;
+            &:hover {
+                background: lightgrey;
+            }
+            &:not(:last-child) {
+                border-bottom: 1px solid lightgrey;
+            }
+        }
+    }
 }
 
 .panel-container {
     flex: 1;
-    padding: 1rem;
+    padding: 0 1rem;
+
+    h3 {
+        margin: 0 0 1rem 0;
+    }
 
     .panel-column {
-        display: flex;
-        flex-direction: column;
-        flex-wrap: wrap;
-        max-height: 14rem;
+        column-count: 2;
+
+        @media only screen and (max-width: 767px) {
+            column-count: 1;
+        }
 
         .panel-row {
-            width: 50%;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            position: relative;
+
+            &::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                border-radius: 4px;
+                box-shadow: 0 0 5px 0 grey;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+            }
+
+            &:hover::after {
+                opacity: 1;
+            }
+
+            // &:hover {
+            //     box-shadow: 0 0 5px 0 grey;
+            // }
 
             div:nth-child(2) {
                 font-weight: 300;
@@ -33,9 +108,10 @@
 
 .match-parent {
     width: 100%;
-    height: 100%;
+    height: 60vh;
     max-width: 1000px;
     margin: 0 auto;
+    min-height: 400px;
 }
 
 .filters {
@@ -56,8 +132,4 @@
             display: inline-block;
         }
     }
-}
-
-.map-popup {
-    text-align: left;
 }

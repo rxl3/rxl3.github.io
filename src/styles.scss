@@ -4,14 +4,15 @@ body {
     font-size: 14px;
 }
 
-
 .map-popup {
     td {
+        font-size: 0.8rem;
+        // font-weight: bold;
         &:first-child {
             text-align: left;
         }
         &:last-child {
-            text-align: right;   
+            text-align: right;
         }
     }
 }

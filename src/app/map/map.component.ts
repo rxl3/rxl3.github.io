@@ -3,7 +3,13 @@ import * as mapboxgl from 'mapbox-gl';
 import { Map } from 'mapbox-gl';
 import { environment } from 'src/environments/environment';
 import { HttpClient } from '@angular/common/http';
-import { combineLatest, Observable } from 'rxjs';
+import {
+    combineLatest,
+    debounceTime,
+    distinctUntilChanged,
+    Observable,
+    Subject,
+} from 'rxjs';
 import { Feature, MultiPolygon } from 'geojson';
 import { FnParam } from '@angular/compiler/src/output/output_ast';
 
@@ -93,19 +99,26 @@ export class MapComponent implements OnInit {
     hoveredSuburbId: any = null;
     hoveredSuburbName: string;
 
-    localities: Locality[];
-    localityStats: Crime[][];
+    localities: Locality[] = [];
+    localityStats: Crime[][] = [];
 
-    offenceList: Offences[];
+    offenceList: Offences[] = [];
 
     selectedOffenceFilters: Offences[];
 
     populations: any;
 
-    highestCrimeRateLocalities: any[];
-    lowestCrimeRateLocalities: any[];
+    highestCrimeRateLocalities: any[] = [];
+    lowestCrimeRateLocalities: any[] = [];
 
     filteredGeoJsonData: GeoJSON.FeatureCollection<GeoJSON.MultiPolygon>;
+
+    searchText: string;
+    private searchText$ = new Subject<string>();
+
+    filteredSuburbs: any[] = [];
+
+    popup: mapboxgl.Popup;
 
     constructor(private http: HttpClient) {
         this.offenceList = Object.values(Offences);
@@ -119,6 +132,13 @@ export class MapComponent implements OnInit {
     }
 
     ngOnInit(): void {
+        this.searchText$
+            .pipe(debounceTime(500), distinctUntilChanged())
+            .subscribe((text) => {
+                if (text.length > 2) {
+                    this.filterSuburb(text);
+                }
+            });
         combineLatest([
             this.http.get<GeoJSON.FeatureCollection<GeoJSON.MultiPolygon>>(
                 this.geoJsonUrl
@@ -249,7 +269,6 @@ export class MapComponent implements OnInit {
                         'mousemove',
                         'suburb-fills',
                         (e: mapboxgl.MapLayerMouseEvent) => {
-                            // console.log(e);
                             if (e && e.features && e.features.length > 0) {
                                 if (this.hoveredSuburbId !== null) {
                                     this.map.setFeatureState(
@@ -294,84 +313,7 @@ export class MapComponent implements OnInit {
                         'click',
                         'suburb-fills',
                         (e: mapboxgl.MapLayerMouseEvent) => {
-                            const locality = this.localities.find(
-                                (l) =>
-                                    l.Name.toUpperCase() ===
-                                    this.hoveredSuburbName
-                            );
-
-                            if (locality) {
-                                let offenceCount = 0;
-
-                                const population: number =
-                                    this.populations[
-                                        locality.Name.toUpperCase()
-                                    ];
-
-                                const stats = this.localityStats.find(
-                                    (s) => s[0].Locality === locality.Name
-                                );
-
-                                if (stats) {
-                                    stats.forEach((s) => {
-                                        if (
-                                            this.selectedOffenceFilters.includes(
-                                                s.Offence
-                                            )
-                                        ) {
-                                            offenceCount += +s.TotalAnnual;
-                                        }
-                                    });
-                                }
-
-                                const markerHeight = 50;
-                                const markerRadius = 10;
-                                const linearOffset = 25;
-                                const popupOffsets: mapboxgl.Offset = {
-                                    top: [0, 0],
-                                    'top-left': [0, 0],
-                                    'top-right': [0, 0],
-                                    bottom: [0, -markerHeight],
-                                    'bottom-left': [
-                                        linearOffset,
-                                        (markerHeight -
-                                            markerRadius +
-                                            linearOffset) *
-                                            -1,
-                                    ],
-                                    'bottom-right': [
-                                        -linearOffset,
-                                        (markerHeight -
-                                            markerRadius +
-                                            linearOffset) *
-                                            -1,
-                                    ],
-                                    left: [
-                                        markerRadius,
-                                        (markerHeight - markerRadius) * -1,
-                                    ],
-                                    right: [
-                                        -markerRadius,
-                                        (markerHeight - markerRadius) * -1,
-                                    ],
-                                };
-                                const popup = new mapboxgl.Popup({
-                                    offset: popupOffsets,
-                                    className: 'map-popup',
-                                })
-                                    .setLngLat(e.lngLat)
-                                    .setHTML(
-                                        `<div style="padding:0.5rem"><h2 style="padding-left: 3px">${locality.Name}</h2><table><tr><td style="font-weight: bold">Rank</td><td>${this.geoJsonData.features.findIndex(f => f.properties['wa_local_2'] === locality.Name.toUpperCase())}/${this.geoJsonData.features.length}</td></tr><tr><td style="font-weight: bold">Crime Rate</td><td>${
-                                            population > 100
-                                                ? (
-                                                      offenceCount / population
-                                                  ).toFixed(2)
-                                                : 'Insufficient data'
-                                        }</td></tr></table></div>`
-                                    )
-                                    .setMaxWidth('300px')
-                                    .addTo(this.map);
-                            }
+                            this.showPopup(e.lngLat);
                         }
                     );
                 });
@@ -404,12 +346,14 @@ export class MapComponent implements OnInit {
             }
 
             f.properties['crime-rate'] =
-                (population >= 100)
+                population >= 100
                     ? +((offenceCount * 100) / population).toFixed(2)
                     : NaN;
         });
 
-        const filtered = this.geoJsonData.features.filter(f => f.properties['crime-rate'] >= 0);
+        const filtered = this.geoJsonData.features.filter(
+            (f) => f.properties['crime-rate'] >= 0
+        );
 
         filtered.sort((a, b) => {
             if (+a.properties['crime-rate'] > +b.properties['crime-rate']) {
@@ -423,7 +367,7 @@ export class MapComponent implements OnInit {
 
         this.filteredGeoJsonData.features = filtered;
 
-        const rates = filtered.map(f => f.properties['crime-rate']);
+        const rates = filtered.map((f) => f.properties['crime-rate']);
 
         const suburbs = this.geoJsonData.features.filter(
             (f) => f.properties['crime-rate'] >= 0
@@ -449,16 +393,22 @@ export class MapComponent implements OnInit {
             this.selectedOffenceFilters.push(offence);
         }
 
-        const checkbox: HTMLInputElement = (document.getElementById('selectAll') as HTMLInputElement);
-        
-        checkbox.indeterminate = this.selectedOffenceFilters.length > 0 && this.selectedOffenceFilters.length < this.offenceList.length;
+        const checkbox: HTMLInputElement = document.getElementById(
+            'selectAll'
+        ) as HTMLInputElement;
+
+        checkbox.indeterminate =
+            this.selectedOffenceFilters.length > 0 &&
+            this.selectedOffenceFilters.length < this.offenceList.length;
 
         this.recalculateCrimeRates();
     }
 
     toggleAllFilters() {
-        const checkbox: HTMLInputElement = (document.getElementById('selectAll') as HTMLInputElement);
-        checkbox.indeterminate = false
+        const checkbox: HTMLInputElement = document.getElementById(
+            'selectAll'
+        ) as HTMLInputElement;
+        checkbox.indeterminate = false;
 
         if (this.selectedOffenceFilters.length > 0) {
             this.selectedOffenceFilters = [];
@@ -471,5 +421,133 @@ export class MapComponent implements OnInit {
 
     isOffenceSelected(offence: Offences): boolean {
         return this.selectedOffenceFilters.findIndex((o) => o === offence) > -1;
+    }
+
+    filterSuburb(value: string) {
+        this.filteredSuburbs = this.localities.filter((l) =>
+            l.Name.toUpperCase().startsWith(value.toUpperCase())
+        );
+    }
+
+    doSuburbFilter(suburbName: string) {
+        this.filteredSuburbs = [];
+        this.searchText =
+            suburbName[0].toUpperCase() + suburbName.slice(1).toLowerCase();
+        const feature = this.filteredGeoJsonData.features.find(
+            (f) => f.properties['wa_local_2'] === suburbName.toUpperCase()
+        );
+
+        if (feature) {
+            const coords = feature.geometry.coordinates;
+
+            const bounds = new mapboxgl.LngLatBounds();
+
+            coords[0][0].forEach((c) => {
+                const lnglat = new mapboxgl.LngLat(c[0], c[1]);
+
+                bounds.extend(lnglat);
+            });
+
+            this.map.fitBounds(bounds);
+
+            this.hoveredSuburbName = suburbName.toUpperCase();
+            this.showPopup(bounds.getCenter());
+        } else {
+            // TODO - handling when can't find suburb
+        }
+    }
+
+    showPopup(position: mapboxgl.LngLatLike) {
+        if (this.popup) {
+            this.popup.remove();
+        }
+
+        const locality = this.localities.find(
+            (l) => l.Name.toUpperCase() === this.hoveredSuburbName
+        );
+
+        if (locality) {
+            let offenceCount = 0;
+
+            const population: number =
+                this.populations[locality.Name.toUpperCase()];
+
+            const stats = this.localityStats.find(
+                (s) => s[0].Locality === locality.Name
+            );
+
+            if (stats) {
+                stats.forEach((s) => {
+                    if (this.selectedOffenceFilters.includes(s.Offence)) {
+                        offenceCount += +s.TotalAnnual;
+                    }
+                });
+            }
+
+            const markerHeight = 50;
+            const markerRadius = 10;
+            const linearOffset = 25;
+            const popupOffsets: mapboxgl.Offset = {
+                top: [0, 0],
+                'top-left': [0, 0],
+                'top-right': [0, 0],
+                bottom: [0, -markerHeight],
+                'bottom-left': [
+                    linearOffset,
+                    (markerHeight - markerRadius + linearOffset) * -1,
+                ],
+                'bottom-right': [
+                    -linearOffset,
+                    (markerHeight - markerRadius + linearOffset) * -1,
+                ],
+                left: [markerRadius, (markerHeight - markerRadius) * -1],
+                right: [-markerRadius, (markerHeight - markerRadius) * -1],
+            };
+            const rank =
+                this.geoJsonData.features.findIndex(
+                    (f) =>
+                        f.properties['wa_local_2'] ===
+                        locality.Name.toUpperCase()
+                ) + 1;
+            this.popup = new mapboxgl.Popup({
+                offset: popupOffsets,
+                className: 'map-popup',
+            })
+                .setLngLat(position)
+                .setHTML(
+                    `<div style="padding:0.5rem"><h2 style="padding-left: 3px">${
+                        locality.Name
+                    }</h2><table><tr><td style="font-weight: bold">Rank</td><td style="color: ${
+                        rank <= 50 ? 'green' : rank <= 200 ? 'orange' : 'red'
+                    }">${rank}${
+                        rank % 10 === 1
+                            ? 'st'
+                            : rank % 10 === 2
+                            ? 'nd'
+                            : rank % 10 === 3
+                            ? 'rd'
+                            : 'th'
+                    } of ${
+                        this.geoJsonData.features.length
+                    }</td></tr><tr><td style="font-weight: bold">Crime Rate</td><td>${
+                        population > 100
+                            ? (offenceCount / population).toFixed(2)
+                            : 'Insufficient data'
+                    }</td></tr></table></div>`
+                )
+                .setMaxWidth('300px')
+                .addTo(this.map);
+        }
+    }
+
+    onSearchTextChange(event: any) {
+        // this.searchText = event;
+        this.searchText$.next(event);
+    }
+
+    dismissSuburbs(e: any) {
+        if (!e.currentTarget.contains(e.relatedTarget)) {
+            // this.filteredSuburbs = [];
+        }
     }
 }
