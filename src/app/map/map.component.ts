@@ -348,7 +348,7 @@ export class MapComponent implements OnInit {
             f.properties['crime-rate'] =
                 population >= 100
                     ? +((offenceCount * 100) / population).toFixed(2)
-                    : NaN;
+                    : Number.NaN;
         });
 
         const filtered = this.geoJsonData.features.filter(
@@ -367,13 +367,14 @@ export class MapComponent implements OnInit {
 
         this.filteredGeoJsonData.features = filtered;
 
-        const rates = filtered.map((f) => f.properties['crime-rate']);
+        // const rates = filtered.map((f) => f.properties['crime-rate']);
 
         const suburbs = this.geoJsonData.features.filter(
             (f) => f.properties['crime-rate'] >= 0
         );
 
         this.highestCrimeRateLocalities = suburbs.slice(-10).reverse();
+        console.log(this.highestCrimeRateLocalities);
         this.lowestCrimeRateLocalities = suburbs.slice(0, 10);
 
         if (this.map) {
@@ -477,7 +478,10 @@ export class MapComponent implements OnInit {
             );
 
             if (stats) {
-                stats.forEach((s) => {
+                const thisYearStats = stats.filter(
+                    (s) => s.FinancialYear === FinancialYears['2021-22']
+                );
+                thisYearStats.forEach((s) => {
                     if (this.selectedOffenceFilters.includes(s.Offence)) {
                         offenceCount += +s.TotalAnnual;
                     }
@@ -530,8 +534,8 @@ export class MapComponent implements OnInit {
                     } of ${
                         this.geoJsonData.features.length
                     }</td></tr><tr><td style="font-weight: bold">Crime Rate</td><td>${
-                        population > 100
-                            ? (offenceCount / population).toFixed(2)
+                        population >= 100
+                            ? ((offenceCount * 100) / population).toFixed(2)
                             : 'Insufficient data'
                     }</td></tr></table></div>`
                 )
